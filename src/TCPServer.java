@@ -1,42 +1,73 @@
 
 import java.io.*;
 import java.net.*;
-import java.nio.file.*;
-import java.util.logging.Logger;
+import java.util.*;
 
-public class TCPServer extends Thread  {
+public class TCPServer  {
 
-    static final int PORT = 8888;
-    Socket socket;
+    public static void main(String argv[]) throws Exception {
 
-    public static void main(String[] args) throws IOException {
-        while (!Thread.interrupted())
-            try(ServerSocket ss = new ServerSocket(PORT);) {
-                new TCPServer(ss.accept()).start();
-            }
-    }
+        String requestMessageLine;
+        String File_path;
 
-    TCPServer(Socket s) {
-        socket = s;
-    }
+        ServerSocket listenSocket = new ServerSocket(14287);
 
-    @Override
-    public void run() {
+        while (true) {
 
-        try( OutputStream out = socket.getOutputStream(); InputStream in = socket.getInputStream() ) {
+            Socket connectionSocket = listenSocket.accept();
+            System.out.println("client connection through"+ connectionSocket);
+            BufferedReader inFromClient =
+                    new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
+            DataOutputStream Out_Put_Stream =
+                    new DataOutputStream(connectionSocket.getOutputStream());
 
-            PrintWriter out1 = new PrintWriter(out,true);
-                    // Send a welcome message to the client.
-            out1.println("Hello, you are client #.");
-            out1.println("Enter a line with only a period to quit\n"); // Get messages from the client, line by line; return them // capitalized
-             System.out.println("try user login");
-            //TODO
-        } catch (IOException e) {
-//            out.write("400 ERROR".getBytes());
-            Logger.getGlobal().severe(e.getMessage());
+            requestMessageLine = inFromClient.readLine();
+
+            StringTokenizer Get_parameters =
+                    new StringTokenizer(requestMessageLine);
+
+            if (Get_parameters.nextToken().equals("GET")) {
+
+                File_path = Get_parameters.nextToken();
+
+                if (File_path.startsWith("/") == true)
+                    File_path = File_path.substring(1);
+
+                File file;
+                FileInputStream inFile;
+
+                //handle file not found exception
+                try{
+                     file= new File(File_path);
+                     inFile= new FileInputStream(File_path);
+                }
+                catch(Exception e) {
+                    File_path="Error.html";
+                    file = new File("Error.html");
+                    inFile= new FileInputStream(File_path);
+                    System.out.println("File Not Found display Error.HTML");
+                }
+
+                int numOfBytes = (int) file.length();
+
+                byte[] fileInBytes = new byte[numOfBytes];
+                inFile.read(fileInBytes);
+
+                Out_Put_Stream.writeBytes("HTTP/1.0 200 Document Follows\r\n");
+
+                if (File_path.endsWith(".jpg"))
+                    Out_Put_Stream.writeBytes("Content-Type: image/jpeg\r\n");
+
+                Out_Put_Stream.writeBytes("Content-Length: " + numOfBytes + "\r\n");
+                Out_Put_Stream.writeBytes("\r\n");
+
+                Out_Put_Stream.write(fileInBytes, 0, numOfBytes);
+
+                //connectionSocket.close();
+            } else System.out.println("Bad Request Message");
+
         }
     }
-
 
 
 }
